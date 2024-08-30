@@ -1,0 +1,37 @@
+version: '3.7'
+
+services:
+  database:
+    image: postgres:13
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports: # Добавьте эту секцию
+      - "5432:5432"  # Проброс порта базы данных наружу
+    networks:
+      - mynetwork
+
+  app:
+    build: .
+    restart: always
+    volumes:
+      - .:/app
+    ports:
+      - '3001:3001'
+    depends_on:
+      - database
+    environment:
+      DATABASE_URL: postgres://postgres:password@database:5432/mydb
+    networks:
+      - mynetwork
+
+volumes:
+  postgres_data:
+
+networks:
+  mynetwork:
+    driver: bridge

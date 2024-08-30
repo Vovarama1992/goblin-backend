@@ -1,0 +1,85 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
+  password  String
+  name      String?
+  wallets   Wallet[]  // Связь один-ко-многим с моделью Wallet
+  sessions  Session[] // Связь один-ко-многим с моделью Session
+  createdAt DateTime  @default(now())
+}
+
+model Wallet {
+  id               Int          @id @default(autoincrement())
+  user             User?        @relation(fields: [userId], references: [id])
+  userId           Int?
+  address          String
+  privateKey       String?
+  blockchain       String
+  balances         WalletBalance[]
+  transactionsFrom Transaction[] @relation("FromWallet")
+  transactionsTo   Transaction[] @relation("ToWallet")
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime?    @updatedAt
+}
+
+model WalletBalance {
+  id           Int      @id @default(autoincrement())
+  wallet       Wallet    @relation(fields: [walletId], references: [id])
+  walletId     Int
+  currency     String    // Название криптовалюты, например "USDT", "TRX"
+  balance      Float     // Текущий баланс в этой криптовалюте
+  updatedAt    DateTime  @updatedAt
+}
+
+model Transaction {
+  id              Int      @id @default(autoincrement())
+  type            TransactionType
+  currency        String   // Название криптовалюты, например "USDT", "TRX"
+  amount          Float
+  fromWallet      Wallet?  @relation("FromWallet", fields: [fromWalletId], references: [id])
+  fromWalletId    Int?
+  toWallet        Wallet?  @relation("ToWallet", fields: [toWalletId], references: [id])
+  toWalletId      Int?
+  externalAddress String?  // Адрес для внешних транзакций, применимо для external-outgoing и external-incoming
+  status          TransactionStatus  @default(PENDING)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+ 
+
+  @@index([fromWalletId])
+  @@index([toWalletId])
+  @@index([currency])
+  @@index([userId]) // Добавляем индекс для быстрого поиска транзакций по пользователю
+}
+
+enum TransactionType {
+  INTERNAL
+  EXTERNAL_OUTGOING
+  EXTERNAL_INCOMING
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model Session {
+  id          Int      @id @default(autoincrement())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      Int
+  token       String   @unique
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+  revoked     Boolean  @default(false)
+}
