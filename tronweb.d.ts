@@ -32,6 +32,7 @@ declare module 'tronweb' {
   }
 
   export class Contract {
+    [x: string]: any;
     transfer(
       to: string,
       amount: number,
@@ -51,6 +52,8 @@ declare module 'tronweb' {
   }
 
   export class TronWeb {
+    [x: string]: any;
+    transactionBuilder: any;
     constructor(options: TronWebOptions);
     createAccount(): Promise<Account>;
     contract(): {

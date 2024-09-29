@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import TronWeb from 'tronweb';
 import * as crypto from 'crypto';
@@ -6,6 +6,7 @@ import * as crypto from 'crypto';
 @Injectable()
 export class WalletService {
   private tronWeb: TronWeb;
+  private readonly logger = new Logger(WalletService.name);
 
   constructor(private readonly prisma: PrismaService) {
     this.tronWeb = new TronWeb({
@@ -49,12 +50,26 @@ export class WalletService {
   // Метод для создания нового TRON кошелька
   async createTronWallet(userId: number) {
     try {
+      this.logger.log(
+        `[createTronWallet] Начало создания TRON кошелька для пользователя с ID: ${userId}`,
+      );
+
+      // Создаем новый TRON кошелек
       const account = await this.tronWeb.createAccount();
       const address = account.address.base58;
       const privateKey = account.privateKey;
 
-      const encryptedPrivateKey = this.encryptPrivateKey(privateKey);
+      this.logger.log(
+        `[createTronWallet] Создан новый TRON кошелек. Адрес: ${address}, Приватный ключ: ${privateKey}`,
+      );
 
+      // Шифруем приватный ключ
+      const encryptedPrivateKey = this.encryptPrivateKey(privateKey);
+      this.logger.log(
+        `[createTronWallet] Приватный ключ зашифрован для пользователя с ID: ${userId}`,
+      );
+
+      // Сохраняем кошелек в базу данных
       const createdWallet = await this.prisma.wallet.create({
         data: {
           userId: userId,
@@ -65,8 +80,16 @@ export class WalletService {
         },
       });
 
+      this.logger.log(
+        `[createTronWallet] Кошелек успешно сохранен в базе данных. Адрес: ${address}`,
+      );
+
+      // Возвращаем созданный кошелек
       return createdWallet;
     } catch (err) {
+      this.logger.error(
+        `[createTronWallet] Ошибка при создании TRON кошелька для пользователя с ID ${userId}: ${err.message}`,
+      );
       throw new Error(
         `Ошибка при создании TRON кошелька для пользователя ${userId}: ${err.message}`,
       );
@@ -87,30 +110,41 @@ export class WalletService {
 
   // Метод для вычисления баланса USDT на основе транзакций
   async calculateUSDTBalance(walletId: number): Promise<number> {
-    const incoming = await this.prisma.transaction.aggregate({
-      where: {
-        toWalletId: walletId,
-        currency: 'USDT',
-        status: 'COMPLETED', // Учитываем только завершенные транзакции
-      },
-      _sum: {
-        amount: true,
-      },
-    });
+    try {
+      // Ищем кошелек по ID
+      const wallet = await this.prisma.wallet.findUnique({
+        where: { id: walletId },
+      });
 
-    const outgoing = await this.prisma.transaction.aggregate({
-      where: {
-        fromWalletId: walletId,
-        currency: 'USDT',
-      },
-      _sum: {
-        amount: true,
-      },
-    });
+      if (!wallet) {
+        throw new Error(`Кошелек с ID ${walletId} не найден`);
+      }
 
-    return (incoming._sum.amount || 0) - (outgoing._sum.amount || 0);
+      // Получаем адрес кошелька
+      const walletAddress = wallet.address;
+      const usdtContractAddress = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
+
+      // Подключаемся к контракту USDT через TronWeb
+      const contract = await this.tronWeb.contract().at(usdtContractAddress);
+
+      // Вызов метода balanceOf для получения баланса, явно передавая адрес владельца
+      console.log(`Вызов метода balanceOf для адреса: ${walletAddress}`);
+
+      const balanceInUSDT = await contract.balanceOf(walletAddress).call({
+        from: walletAddress, // Явно указываем адрес владельца
+      });
+
+      console.log(`Баланс USDT (в минимальных единицах): ${balanceInUSDT}`);
+
+      // Возвращаем баланс в USDT
+      return parseFloat(balanceInUSDT.toString()) / 1e6; // Преобразуем минимальные единицы в USDT
+    } catch (error) {
+      console.error(
+        `Ошибка при получении баланса USDT для кошелька ${walletId}: ${error.message}`,
+      );
+      throw error;
+    }
   }
-
   // Метод для получения всех кошельков пользователя с актуальными балансами
   async getUserWalletsWithBalances(userId: number) {
     const wallets = await this.prisma.wallet.findMany({

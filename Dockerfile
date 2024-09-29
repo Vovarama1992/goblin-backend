@@ -16,7 +16,7 @@ RUN npm uninstall bcrypt
 # Установите bcryptjs
 RUN npm install bcryptjs ts-node --unsafe-perm --allow-root
 
-# Установите Prisma CLI
+# Установите Prisma Client
 RUN npm install @prisma/client --unsafe-perm=true --allow-root
 
 # Установите глобальные зависимости отдельно
@@ -29,5 +29,8 @@ COPY . .
 # Генерация Prisma Client
 RUN npx prisma generate
 
-# Запустите приложение
-CMD ["sh", "-c", " npm run start:dev"]
+# Скомпилируйте TypeScript файлы
+RUN npm run build
+
+# Запуск скомпилированного приложения
+CMD ["npm", "run", "start"]

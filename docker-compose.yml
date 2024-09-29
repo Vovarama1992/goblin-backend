@@ -8,18 +8,16 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
       POSTGRES_DB: mydb
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports: # Добавьте эту секцию
-      - "5432:5432"  # Проброс порта базы данных наружу
+    ports:
+      - "5432:5432"
     networks:
       - mynetwork
+    volumes:
+      - postgres-data:/var/lib/postgresql/data  # Хранение данных Postgres
 
   app:
     build: .
     restart: always
-    volumes:
-      - .:/app
     ports:
       - '3001:3001'
     depends_on:
@@ -28,10 +26,14 @@ services:
       DATABASE_URL: postgres://postgres:password@database:5432/mydb
     networks:
       - mynetwork
-
-volumes:
-  postgres_data:
+    command: npm run start  # Запускаем приложение без Nodemon
+    volumes:
+      - .:/app  # Монтируем локальную директорию в контейнер
+      - /app/node_modules  # Исключаем node_modules, чтобы они не перетирались
 
 networks:
   mynetwork:
     driver: bridge
+
+volumes:
+  postgres-data:

@@ -1,18 +1,20 @@
-import { Controller, Get, Param, Post, Body } from '@nestjs/common';
+import { Controller, Get, Param, Post, Body, Logger } from '@nestjs/common';
 import { TransactionService } from './services/transaction.service';
 
 @Controller('transactions')
 export class TransactionController {
+  private readonly logger = new Logger(TransactionController.name);
+
   constructor(private readonly transactionService: TransactionService) {}
 
-  @Get(':id/status')
-  async getTransactionStatus(@Param('id') transactionRecordId: number) {
-    return this.transactionService.getTransactionStatus(transactionRecordId);
-  }
-
   @Get('user/:id')
-  async getAllUsersTransactions(@Param('id') userId: number) {
-    return this.transactionService.getUserTransactions(userId);
+  async getUserTransactions(@Param('id') userId: number) {
+    this.logger.log(
+      `Запрос на получение транзакций для пользователя с ID: ${userId}`,
+    );
+
+    // Вызываем метод сервиса для получения всех транзакций пользователя
+    return this.transactionService.getUserTransactions(Number(userId));
   }
 
   // Внутренний перевод между кошельками
@@ -29,6 +31,7 @@ export class TransactionController {
     );
   }
 
+  // Внешний перевод на адрес
   @Post('external-transfer')
   async externalTransfer(
     @Body('fromWalletId') fromWalletId: number,

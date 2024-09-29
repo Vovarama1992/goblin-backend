@@ -59,7 +59,7 @@ model Transaction {
   @@index([fromWalletId])
   @@index([toWalletId])
   @@index([currency])
-  @@index([userId]) // Добавляем индекс для быстрого поиска транзакций по пользователю
+  
 }
 
 enum TransactionType {
